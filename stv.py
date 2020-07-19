@@ -36,6 +36,7 @@ import logging
 import sys
 import math
 import csv
+import json
 import argparse
 
 SVT_LOGGER = 'SVT'
@@ -384,6 +385,7 @@ if __name__ == "__main__":
                         dest='random', help='random selection results')
     parser.add_argument('-l', '--loglevel', default=logging.INFO,
                         dest='loglevel', help='logging level')
+    parser.add_argument('-j', '--json', help='Read ballots file as JSON')
     args = parser.parse_args()
 
     stream_handler = logging.StreamHandler(stream=sys.stdout)
@@ -391,28 +393,33 @@ if __name__ == "__main__":
     logger.setLevel(args.loglevel)
     logger.addHandler(stream_handler)
 
-    # ballots = []
-    # ballots_file = sys.stdin
-    # if args.ballots_file != 'sys.stdin':
-    #     ballots_file = open(args.ballots_file, 'U')
-    # ballots_reader = csv.reader(ballots_file, delimiter=',',
-    #                             quotechar='"',
-    #                             skipinitialspace=True)
-    # for ballot in ballots_reader:
-    #     ballots.append(Ballot(ballot))
-
-    # ======== ARTUR @ SNET ===========================
-    import json
-    with open("votes.json", "r") as f:
-        votes_list = json.load(f)
-    
-    DEBUG_FACTOR = 1
     ballots = []
-    for v in votes_list:
-        votes_token = range(0, int(float(v["balance"])/DEBUG_FACTOR))
-        for b in votes_token:
-            ballots.append(Ballot(v["candidates"]))
-    # =================================================
+    ballots_file = sys.stdin
+    should_close_ballots_file = False
+
+    if args.ballots_file != 'sys.stdin':
+         ballots_file = open(args.ballots_file, 'Ur')
+         should_close_ballots_file = True
+    
+    if not args.json:
+        ballots_reader = csv.reader(ballots_file, delimiter=',',
+                                    quotechar='"',
+                                    skipinitialspace=True)
+        for ballot in ballots_reader:
+            ballots.append(Ballot(ballot))
+    else:
+        # ======== ARTUR @ SNET ===========================
+        votes_list = json.load(ballots_file)
+    
+        DEBUG_FACTOR = 1
+        for v in votes_list:
+            votes_token = range(0, int(float(v["balance"])/DEBUG_FACTOR))
+            for b in votes_token:
+                ballots.append(Ballot(v["candidates"]))
+        # =================================================
+
+    if should_close_ballots_file:
+        ballots_file.close()
 
     if args.seats == 0:
         args.seats = len(ballots) / 2
