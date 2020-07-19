@@ -226,12 +226,14 @@ def count_description(vote_count, candidates):
 
    
 def count_stv(ballots, seats, droop = True, constituencies = None,
-              quota_limit = 0, rnd_gen=None):
+              quota_limit = 0, rnd_gen=None, fractional = False):
     """Performs a STV vote for the given ballots and number of seats.
 
     If droop is true the election threshold is calculated according to the
     Droop quota:
             threshold = int(1 + (len(ballots) / (seats + 1.0)))
+    If it is a fractional droop, then it is calculated with:
+            threshold = (len(ballots) / (seats + 1.0))
     otherwise it is calculated according to the following formula:
             threshold = int(math.ceil(1 + len(ballots) / (seats + 1.0)))
     The constituencies argument is a map of candidates to constituencies, if
@@ -261,7 +263,10 @@ def count_stv(ballots, seats, droop = True, constituencies = None,
     seed()
 
     if droop:
-        threshold = int(1 + (len(ballots) / (seats + 1.0)))
+        if not fractional:
+            threshold = int(1 + (len(ballots) / (seats + 1.0)))
+        else:
+            threshold = (len(ballots) / (seats + 1.0))
     else:
         threshold = int(math.ceil(1 + len(ballots) / (seats + 1.0)))
 
@@ -304,7 +309,7 @@ def count_stv(ballots, seats, droop = True, constituencies = None,
         surplus = vote_count[hopefuls_sorted[0]] - threshold
         # If there is either a candidate with surplus votes, or
         # there are hopeful candidates beneath the threshold.
-        if surplus >= 0 or num_hopefuls <= (seats - num_elected):
+        if fractional and (surplus > 0) or not fractional and (surplus >= 0) or num_hopefuls <= (seats - num_elected):
             best_candidate = randomly_select_first(hopefuls_sorted,
                                                    key=vote_count.get,
                                                    action=Action.ELECT,
@@ -374,6 +379,8 @@ if __name__ == "__main__":
                         dest='ballots_file', help='input ballots file')
     parser.add_argument('-n', '--not_droop', action="store_false",
                         dest='droop', help="don't use droop quota")
+    parser.add_argument('-f', '--fractional', action="store_true",
+                        dest='fractional', help="If using drop, then use fractional droop using > instead of >= for going over the threshold")
     parser.add_argument('-s', '--seats', type=int, default=0,
                         dest='seats', help='number of seats')
     parser.add_argument('-c', '--constituencies',
@@ -385,8 +392,12 @@ if __name__ == "__main__":
                         dest='random', help='random selection results')
     parser.add_argument('-l', '--loglevel', default=logging.INFO,
                         dest='loglevel', help='logging level')
-    parser.add_argument('-j', '--json', help='Read ballots file as JSON')
+    parser.add_argument('-j', '--json', action="store_true",
+                        dest='json', help='Read ballots file as JSON')
     args = parser.parse_args()
+
+    if args.fractional and not args.droop:
+        parser.error("Cannot use fractional droop method if not using the droop method!")
 
     stream_handler = logging.StreamHandler(stream=sys.stdout)
     logger = logging.getLogger(SVT_LOGGER)
@@ -398,7 +409,7 @@ if __name__ == "__main__":
     should_close_ballots_file = False
 
     if args.ballots_file != 'sys.stdin':
-         ballots_file = open(args.ballots_file, 'Ur')
+         ballots_file = open(args.ballots_file, 'r')
          should_close_ballots_file = True
     
     if not args.json:
@@ -440,7 +451,8 @@ if __name__ == "__main__":
     (elected, vote_count) = count_stv(ballots, args.seats, args.droop,
                                       constituencies,
                                       args.quota,
-                                      args.random)
+                                      args.random,
+                                      args.fractional)
 
     print("Results:")
     for result in elected:
