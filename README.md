@@ -30,10 +30,19 @@ quota is used. In the Greek university governing councils elections a
 slightly different formula is used, specifically:
 
     int(math.ceil(1 + len(ballots) / (seats + 1.0)))
+    
+* `-f, --fractional`
 
-* `-s SEATS --seats SEATS`
+Use a fractional Droop quota.  
+This also makes it so that the number of votes _has_ go to go over the threshold, not just equal it. This is to avoid having more people elected than there are seats.
+
+* `-s SEATS, --seats SEATS`
 
 The number of seats to be elected.
+
+* `-j, --json`
+
+Read the ballots file as a JSON instead of a CSV.
 
 * `-c CONSTITUENCIES_FILE, --constituencies CONSTITUENCIES_FILE`
 
